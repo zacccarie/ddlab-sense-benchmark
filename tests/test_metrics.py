@@ -1,7 +1,14 @@
-"""Tests Phase 3 — métriques sur le graphe de transition induit."""
+"""Tests Phase 3 — métriques sur le graphe induit et homomorphisme de bassins."""
+
+import numpy as np
 
 from ddlab_bench import computeBasinField
-from ddlab_bench.metrics import forwardEdgeAccuracy, goeDetectionMetrics, preimageSetMetrics
+from ddlab_bench.metrics import (
+    basinHomomorphism,
+    forwardEdgeAccuracy,
+    goeDetectionMetrics,
+    preimageSetMetrics,
+)
 
 
 def testPerfectInducedGraphScoresPerfect():
@@ -32,3 +39,18 @@ def testSingleWrongEdgeDegradesStructure():
     # une arête détournée corrompt exactement deux ensembles de pré-images
     pre = preimageSetMetrics(induced, field.succ)
     assert pre["preimageExactMatch"] == (size - 2) / size
+
+
+def testBasinHomomorphismPerfectOnOneHotLabels():
+    # features = one-hot du vrai bassin -> k-means retrouve la partition (AMI ~ 1)
+    field = computeBasinField(110, 9)
+    k = len(field.attractors)
+    oneHot = np.eye(k, dtype=np.float32)[field.attractorId]
+    assert basinHomomorphism(oneHot, field.attractorId, seed=0)["ami"] > 0.99
+
+
+def testBasinHomomorphismLowOnRandomFeatures():
+    # features aléatoires -> aucun lien avec les bassins -> AMI proche de 0
+    field = computeBasinField(110, 9)
+    randomFeats = np.random.default_rng(0).normal(size=(1 << 9, 16)).astype(np.float32)
+    assert basinHomomorphism(randomFeats, field.attractorId, seed=0)["ami"] < 0.3

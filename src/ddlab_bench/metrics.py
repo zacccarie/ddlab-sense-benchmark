@@ -6,6 +6,8 @@ comparés à la vérité-terrain DDLab. La prédiction forward est une fonction 
 la structure inverse (pré-images, GoE) est non-locale et causale."""
 
 import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_mutual_info_score, v_measure_score
 
 from ddlab_bench.basins import buildPreimageArray
 
@@ -72,4 +74,19 @@ def goeDetectionMetrics(induced, trueSucc):
         "goePrecision": precision,
         "goeRecall": recall,
         "goeF1": f1,
+    }
+
+
+def basinHomomorphism(features, attractorId, seed=0, nInit=10):
+    """Compare le partitionnement de l'espace de features (k-means) au vrai
+    découpage en bassins d'attraction.
+
+    k = nombre de bassins. Retourne AMI (Adjusted Mutual Information, ajusté
+    pour le hasard) et V-measure. AMI élevé = les features regroupent les états
+    par bassin — la représentation « découpe le réel aux jointures »."""
+    k = int(attractorId.max()) + 1
+    clusters = KMeans(n_clusters=k, random_state=seed, n_init=nInit).fit_predict(features)
+    return {
+        "ami": float(adjusted_mutual_info_score(attractorId, clusters)),
+        "vMeasure": float(v_measure_score(attractorId, clusters)),
     }
