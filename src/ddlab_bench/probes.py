@@ -73,10 +73,13 @@ def _macroF1(predicted, trueLabels, numClasses):
 
 
 def trainProbe(features, labels, trainIdx, testIdx, numClasses, rng,
-               epochs=50, batchSize=256, lr=5e-3, device="cpu", probeFactory=LinearProbe):
+               epochs=50, batchSize=256, lr=5e-3, device="cpu", probeFactory=LinearProbe,
+               seed=0):
     """Entraîne une sonde (linéaire ou MLP) et l'évalue sur le split de test.
 
+    `seed` fixe l'initialisation de la sonde (reproductibilité).
     Retourne dict(testAccuracy, testMacroF1)."""
+    torch.manual_seed(seed)
     probe = probeFactory(features.shape[1], numClasses).to(device)
     optimizer = torch.optim.Adam(probe.parameters(), lr=lr)
     lossFn = nn.CrossEntropyLoss()
@@ -109,3 +112,13 @@ def majorityBaseline(labels, trainIdx, testIdx, numClasses):
     """Précision du classifieur trivial: classe majoritaire du train, évaluée en test."""
     majority = np.bincount(labels[trainIdx], minlength=numClasses).argmax()
     return float(np.mean(labels[testIdx] == majority))
+
+
+def extractRepresentations(model, n, device, chunk=4096):
+    """Représentation cachée du modèle pour tous les états de l'espace [0, 2^n)."""
+    size = 1 << n
+    feats = np.empty((size, model.gru.hidden_size), dtype=np.float32)
+    for start in range(0, size, chunk):
+        states = np.arange(start, min(start + chunk, size))
+        feats[states] = model.representation(states, device)
+    return feats

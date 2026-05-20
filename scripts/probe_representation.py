@@ -4,23 +4,24 @@ Entraîne le modèle A forward jusqu'à convergence, gèle ses poids, puis entra
 des sondes (linéaire et MLP) à décoder des faits causaux inverses (garden-of-Eden,
 in-degré) depuis trois jeux de features:
   - forwardRep : représentation cachée du GRU forward convergé
-  - randomRep  : représentation d'un GRU non entraîné (même architecture)
+  - randomRep  : représentation du même GRU à son initialisation (avant entraînement)
   - rawBits    : les bits bruts de l'état
 
-Comparaison décisive, à sonde fixée: forwardRep vs randomRep. Si l'entraînement
-forward n'ajoute rien au-delà des features aléatoires, la compétence forward ne
-porte pas la structure causale -> H1 confirmé."""
+Comparaison décisive, à sonde fixée: forwardRep vs rawBits. randomRep est le même
+réseau avant entraînement — il isole l'apport de l'apprentissage."""
 
 import sys
 from pathlib import Path
 
 import numpy as np
+import torch
 
 from ddlab_bench.artifacts import loadBundle
 from ddlab_bench.models.sequence_model import SequenceModel, stateToBits
 from ddlab_bench.probes import (
     LinearProbe,
     MLPProbe,
+    extractRepresentations,
     goeLabels,
     inDegreeLabels,
     majorityBaseline,
@@ -30,16 +31,6 @@ from ddlab_bench.training import forwardAccuracy, trainSequenceModel
 
 FORWARD_EPOCHS = 45
 HIDDEN = 128
-
-
-def extractAllRepresentations(model, n, device, chunk=4096):
-    """Représentation cachée du modèle pour tous les états de l'espace."""
-    size = 1 << n
-    feats = np.empty((size, model.gru.hidden_size), dtype=np.float32)
-    for start in range(0, size, chunk):
-        states = np.arange(start, min(start + chunk, size))
-        feats[states] = model.representation(states, device)
-    return feats
 
 
 def main(bundlePath):
@@ -58,10 +49,13 @@ def main(bundlePath):
     fwdOod = forwardAccuracy(forwardModel, data["testStates"], field.succ, device)
     print(f"  forward un-pas: train {fwdTrain:.4f} | OOD {fwdOod:.4f}")
 
+    # randomModel = le modèle forward à son initialisation (seed 0, avant entraînement)
+    torch.manual_seed(0)
     randomModel = SequenceModel(n, hidden=HIDDEN).to(device)
+
     featureSets = {
-        "forwardRep": extractAllRepresentations(forwardModel, n, device),
-        "randomRep": extractAllRepresentations(randomModel, n, device),
+        "forwardRep": extractRepresentations(forwardModel, n, device),
+        "randomRep": extractRepresentations(randomModel, n, device),
         "rawBits": stateToBits(np.arange(size), n),
     }
     targets = {
@@ -81,10 +75,9 @@ def main(bundlePath):
         print("-" * 45)
         for probeName, probeFactory in probeKinds.items():
             for featName, feats in featureSets.items():
-                probeRng = np.random.default_rng(1)
                 result = trainProbe(
-                    feats, labels, trainIdx, testIdx, numClasses, probeRng,
-                    device=device, probeFactory=probeFactory,
+                    feats, labels, trainIdx, testIdx, numClasses,
+                    np.random.default_rng(1), device=device, probeFactory=probeFactory,
                 )
                 print(
                     f"{probeName:>11} {featName:>12} {result['testAccuracy']:>9.4f} "
@@ -93,12 +86,9 @@ def main(bundlePath):
 
     print(
         "\nLecture:"
-        "\n  Comparaison décisive, à sonde fixée: forwardRep vs randomRep."
-        "\n  linéaire, forwardRep >> randomRep => structure causale linéairement lisible"
-        "\n                                      (apport de l'entraînement forward)."
-        "\n  MLP forwardRep vs forwardRep lin. => part de structure causale non-linéaire."
-        "\n  MLP rawBits élevé est attendu (le MLP recalcule la cible depuis l'état);"
-        "\n  seul forwardRep vs randomRep, à sonde égale, isole l'apport de l'apprentissage."
+        "\n  forwardRep vs rawBits (linéaire) => l'entraînement forward désintrique-t-il"
+        "\n  la structure causale (la rend-il linéairement lisible) ?"
+        "\n  randomRep = même réseau avant entraînement => isole l'apport de l'apprentissage."
     )
 
 

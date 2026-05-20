@@ -19,8 +19,11 @@ def makeBatches(traj, n, rng, batchSize):
 
 
 def trainSequenceModel(trainTraj, n, hidden, epochs, rng, device="cpu",
-                       batchSize=128, lr=2e-3, verbose=False):
-    """Entraîne un GRU à prédire l'état suivant. Retourne le modèle entraîné."""
+                       batchSize=128, lr=2e-3, verbose=False, seed=0):
+    """Entraîne un GRU à prédire l'état suivant. Retourne le modèle entraîné.
+
+    `seed` fixe l'initialisation des poids (reproductibilité)."""
+    torch.manual_seed(seed)
     model = SequenceModel(n, hidden=hidden).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     lossFn = nn.BCEWithLogitsLoss()
