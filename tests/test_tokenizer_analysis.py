@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from ddlab_bench import computeBasinField
+from ddlab_bench import computeBasinField, iterateSuccessor
 from ddlab_bench.tokenizer_analysis import metricsForCode
 
 
@@ -25,3 +25,14 @@ def testConstantCodeDestroysStructure():
     assert m["collisionRate"] > 0.99
     assert m["latentBasins"] == 1
     assert m["ami"] < 0.01
+
+
+def testHorizonQuotientCompressesAndPreserves():
+    # code_H(s) = succ^H(s) ne fusionne que des états convergents (même bassin)
+    # => il compresse fortement tout en préservant exactement la structure
+    field = computeBasinField(110, 9)
+    horizon = int(field.transient.max()) + 4
+    m = metricsForCode(iterateSuccessor(field.succ, horizon), field)
+    assert m["collisionRate"] > 0.5
+    assert m["ami"] > 0.999
+    assert m["latentBasins"] == len(field.attractors)

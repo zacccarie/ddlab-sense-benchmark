@@ -3,7 +3,14 @@
 import numpy as np
 import pytest
 
-from ddlab_bench import buildSuccessorArray, computeBasinField, ruleTable, stepState, zParameter
+from ddlab_bench import (
+    buildSuccessorArray,
+    computeBasinField,
+    iterateSuccessor,
+    ruleTable,
+    stepState,
+    zParameter,
+)
 
 
 def testRuleTableDecoding():
@@ -86,3 +93,17 @@ def testZParameterRule110():
 
 def testZParameterRule0():
     assert zParameter(0)["z"] == 0.0
+
+
+def testIterateSuccessorZeroAndOne():
+    succ = buildSuccessorArray(110, 8)
+    assert np.array_equal(iterateSuccessor(succ, 0), np.arange(len(succ)))
+    assert np.array_equal(iterateSuccessor(succ, 1), succ)
+
+
+def testIterateSuccessorReachesCycle():
+    # après le transitoire maximal, tout état a atteint son cycle attracteur
+    field = computeBasinField(110, 9)
+    horizon = int(field.transient.max())
+    for state in iterateSuccessor(field.succ, horizon):
+        assert field.transient[state] == 0

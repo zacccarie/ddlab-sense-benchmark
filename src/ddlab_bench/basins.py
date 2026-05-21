@@ -19,6 +19,17 @@ def buildPreimageArray(succ):
     return preimages
 
 
+def iterateSuccessor(succ, steps):
+    """Successeur à `steps` itérations : result[s] = succ appliqué `steps` fois.
+
+    Pour `steps` >= transitoire maximal, chaque état a atteint son cycle
+    attracteur — result[s] encode alors le destin (le bassin) de s."""
+    result = np.arange(len(succ))
+    for _ in range(steps):
+        result = succ[result]
+    return result
+
+
 def gardenOfEden(preimages):
     """États sans prédécesseur — inatteignables par la dynamique forward."""
     return [state for state, pre in enumerate(preimages) if not pre]
