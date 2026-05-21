@@ -40,7 +40,7 @@ def zParameter(ruleNumber):
 
 def structuralSummary(field):
     """Mesures structurelles exactes extraites du champ de bassins (vérité-terrain)."""
-    size = 1 << field.n
+    size = len(field.succ)  # générique : 2^n pour un système binaire, m^n pour un CML
     periods = [len(cycle) for cycle in field.attractors]
     basinCounts = np.bincount(field.attractorId, minlength=len(field.attractors))
     inDegrees = np.fromiter(
@@ -88,3 +88,27 @@ def randomBasinMismatch(field):
     sizes = np.bincount(field.attractorId)
     fractions = sizes / sizes.sum()
     return 1.0 - float((fractions ** 2).sum())
+
+
+def maryBasinMismatch(field, m):
+    """Fraction des voisins perceptuels m-aires (une cellule décalée de ±1
+    niveau) qui changent de bassin.
+
+    Généralise `perceptualBasinMismatch` aux alphabets m>2 (ex. CML discrétisé) ;
+    pour m=2 elle lui est identique — un décalage de ±1 niveau est une inversion
+    de bit. Élevé => bassins perceptuellement éclatés : la proximité d'observation
+    ne prédit pas le destin. À comparer à `randomBasinMismatch`."""
+    basin = field.attractorId
+    states = np.arange(len(field.succ))
+    different = 0
+    total = 0
+    for cell in range(field.n):
+        power = m ** cell
+        level = (states // power) % m
+        for delta in (-1, 1):
+            valid = (level + delta >= 0) & (level + delta < m)
+            base = states[valid]
+            neighbor = base + delta * power
+            different += int(np.sum(basin[neighbor] != basin[base]))
+            total += int(valid.sum())
+    return different / total

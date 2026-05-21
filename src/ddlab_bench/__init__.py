@@ -16,9 +16,19 @@ from ddlab_bench.basins import (
     transientLengths,
 )
 from ddlab_bench.rbn import RandomBooleanNetwork
+from ddlab_bench.cml import CoupledMapLattice, logisticMap
 from ddlab_bench.classify import zParameter, structuralSummary, regimeHint
 from ddlab_bench.trajectories import generateTrajectories, splitByBasins
 from ddlab_bench.artifacts import buildBundle, loadBundle
+from ddlab_bench.renormalization import (
+    refinePartition,
+    bisimulationQuotient,
+    quotientGraph,
+    statisticalComplexity,
+    densityLabel,
+    windowLabel,
+    bisimulationMetric,
+)
 
 __all__ = [
     "ruleTable",
@@ -28,6 +38,8 @@ __all__ = [
     "computeBasinField",
     "basinFieldFromSuccessor",
     "RandomBooleanNetwork",
+    "CoupledMapLattice",
+    "logisticMap",
     "buildPreimageArray",
     "iterateSuccessor",
     "findAttractors",
@@ -40,4 +52,11 @@ __all__ = [
     "splitByBasins",
     "buildBundle",
     "loadBundle",
+    "refinePartition",
+    "bisimulationQuotient",
+    "quotientGraph",
+    "statisticalComplexity",
+    "densityLabel",
+    "windowLabel",
+    "bisimulationMetric",
 ]
