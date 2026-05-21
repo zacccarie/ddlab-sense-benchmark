@@ -85,3 +85,23 @@ class LatentDynamics(nn.Module):
 
     def forward(self, codes):
         return self.net(self.embed(codes))
+
+
+class ContrastiveEncoder(nn.Module):
+    """Encodeur convolutif pour l'apprentissage contrastif temporel.
+
+    Image -> embedding L2-normalisé (la similarité cosinus est alors un simple
+    produit scalaire)."""
+
+    def __init__(self, imageSide, embedDim=32):
+        super().__init__()
+        reduced = imageSide // 4
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, 16, 3, stride=2, padding=1), nn.ReLU(),
+            nn.Conv2d(16, 32, 3, stride=2, padding=1), nn.ReLU(),
+        )
+        self.head = nn.Linear(32 * reduced * reduced, embedDim)
+
+    def forward(self, images):
+        features = self.conv(images.unsqueeze(1))
+        return F.normalize(self.head(features.flatten(1)), dim=1)

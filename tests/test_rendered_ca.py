@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from ddlab_bench.models.world_model import LatentDynamics, VQVAE
+from ddlab_bench.models.world_model import ContrastiveEncoder, LatentDynamics, VQVAE
 from ddlab_bench.rendering import renderAll, renderState
 
 
@@ -39,3 +39,11 @@ def testLatentDynamicsForwardShape():
     model = LatentDynamics(codebookSize=64)
     codes = torch.zeros(5, dtype=torch.int64)
     assert model(codes).shape == (5, 64)
+
+
+def testContrastiveEncoderShapeAndNorm():
+    model = ContrastiveEncoder(imageSide=24, embedDim=32)
+    z = model(torch.randn(8, 24, 24))
+    assert z.shape == (8, 32)
+    # embedding L2-normalisé : norme 1
+    assert torch.allclose(z.norm(dim=1), torch.ones(8), atol=1e-5)

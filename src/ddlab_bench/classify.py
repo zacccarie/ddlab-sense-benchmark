@@ -65,3 +65,26 @@ def regimeHint(zValue):
     if zValue < 0.85:
         return "complexe"
     return "chaotique"
+
+
+def perceptualBasinMismatch(field):
+    """Fraction des voisins perceptuels (états à 1 bit) qui changent de bassin.
+
+    Élevé => les bassins sont perceptuellement éclatés : la proximité
+    d'observation ne prédit pas le destin. À comparer à `randomBasinMismatch`."""
+    size = 1 << field.n
+    basin = field.attractorId
+    different = 0
+    for state in range(size):
+        for bit in range(field.n):
+            if basin[state ^ (1 << bit)] != basin[state]:
+                different += 1
+    return different / (size * field.n)
+
+
+def randomBasinMismatch(field):
+    """Mismatch attendu si les bassins étaient répartis au hasard, à tailles
+    identiques : 1 - somme des p_b^2. Référence pour `perceptualBasinMismatch`."""
+    sizes = np.bincount(field.attractorId)
+    fractions = sizes / sizes.sum()
+    return 1.0 - float((fractions ** 2).sum())
