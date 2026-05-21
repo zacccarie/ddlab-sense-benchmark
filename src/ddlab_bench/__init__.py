@@ -29,6 +29,8 @@ from ddlab_bench.renormalization import (
     windowLabel,
     bisimulationMetric,
 )
+from ddlab_bench.agglomerative_ib import agglomerativeIB, mergeCost, partitionAt
+from ddlab_bench.markov import MarkovChain, hierarchicalChain, noisyEcaChain
 
 __all__ = [
     "ruleTable",
@@ -59,4 +61,10 @@ __all__ = [
     "densityLabel",
     "windowLabel",
     "bisimulationMetric",
+    "agglomerativeIB",
+    "mergeCost",
+    "partitionAt",
+    "MarkovChain",
+    "hierarchicalChain",
+    "noisyEcaChain",
 ]
