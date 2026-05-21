@@ -1,24 +1,6 @@
-% =====================================================================
-% DDLab sense-extraction benchmark — workshop paper, first draft.
-%
-% STATUS: draft. Compiles with pdflatex + bibtex (standard article class;
-% retarget to a specific workshop style file before submission).
-%
-% GAPS TO CLOSE BEFORE SUBMISSION:
-%  1. Related work — references.bib verified (2026-05). Still to do: expand
-%     the positioning vs Othello-GPT / emergent world representations and
-%     bisimulation work into fuller prose.
-%  2. Section 4 (Z-spectrum) — the edge-of-chaos lift is partly confounded
-%     with label degeneracy at the ordered/chaotic extremes; it is framed
-%     here as a secondary observation, not a headline. Keep it that way or
-%     cut it.
-%  3. Figures — DONE: paper/figures/ holds basin_field.png, ami_cliff.pdf and
-%     perceptual_mismatch.pdf; regenerate the plots via paper/make_figures.py.
-%  4. Optional: add a sixth, non-contrastive SSL objective (BYOL/VICReg)
-%     to strengthen the "structural, not optimization" claim.
-%  5. Scale (n<=14) is a deliberate design choice (exact ground truth
-%     requires enumerability) — stated in Limitations; keep owning it.
-% =====================================================================
+% Perception Is Not Causation -- arXiv preprint source.
+% Compiles with pdflatex + bibtex, or with tectonic. Figures live in
+% paper/figures/ (regenerate the plots via paper/make_figures.py).
 \documentclass[11pt]{article}
 
 \usepackage[utf8]{inputenc}
@@ -38,8 +20,8 @@
 
 \title{Perception Is Not Causation:\\
 Auditing Representation Learners Against Exact Causal Ground Truth}
-\author{Zaccarie Aglas\\\texttt{zaccarie@zaccarie.fr}}
-\date{Draft --- \today}
+\author{Zaccarie Aglas\\ Independent Researcher\\ \texttt{zaccarie@zaccarie.fr}}
+\date{\today}
 
 \begin{document}
 \maketitle
