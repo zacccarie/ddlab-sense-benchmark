@@ -4,6 +4,7 @@ import numpy as np
 
 from ddlab_bench import computeBasinField
 from ddlab_bench.metrics import (
+    balancedAmi,
     basinHomomorphism,
     forwardEdgeAccuracy,
     goeDetectionMetrics,
@@ -54,3 +55,21 @@ def testBasinHomomorphismLowOnRandomFeatures():
     field = computeBasinField(110, 9)
     randomFeats = np.random.default_rng(0).normal(size=(1 << 9, 16)).astype(np.float32)
     assert basinHomomorphism(randomFeats, field.attractorId, seed=0)["ami"] < 0.3
+
+
+def testBalancedAmiPerfectClustering():
+    # clustering parfait -> AMI rééquilibrée ~ 1 malgré le fort déséquilibre
+    reference = np.array([0] * 900 + [1] * 50 + [2] * 50)
+    assert balancedAmi(reference, reference.copy(), perClass=50, seed=0) > 0.99
+
+
+def testBalancedAmiPenalizesIgnoredSmallClasses():
+    # clustering qui ne récupère que la classe géante (petites classes fusionnées) :
+    # l'AMI standard reste élevée — le géant domine —, la rééquilibrée chute.
+    from sklearn.metrics import adjusted_mutual_info_score
+
+    reference = np.array([0] * 900 + [1] * 50 + [2] * 50)
+    clusters = np.array([0] * 900 + [1] * 100)
+    standard = adjusted_mutual_info_score(reference, clusters)
+    balanced = balancedAmi(reference, clusters, perClass=50, seed=0)
+    assert balanced < standard

@@ -48,12 +48,17 @@ def trainBisimulationEncoder(stateFeatures, succ, label, latentDim=16,
     gamma         : poids récursif ; gamma=0 -> phi n'encode que l.
     tau           : taux d'EMA du réseau cible.
 
-    La distance des successeurs est lue sur un RÉSEAU CIBLE — copie à moyenne
-    glissante de phi. Sans lui, la cible (qui dépend de phi) et l'estimation
-    courante se renforcent et l'échelle du plongement diverge ; le réseau cible
-    découple la cible de l'encodeur vif et rend la récursion contractante
-    (correctif standard, cf. deep bisimulation for control). Retourne
-    (encoder, lossHistory)."""
+    Deux stabilisateurs rendent la récursion sûre, jusqu'à gamma -> 1 :
+    - RÉSEAU CIBLE — la distance des successeurs est lue sur une copie à moyenne
+      glissante de phi ; sans lui, cible et estimation courante se renforcent
+      (correctif standard, cf. deep bisimulation for control).
+    - CIBLE NORMALISÉE — (1-gamma)*base + gamma*d_succ. Le point fixe non
+      normalisé croît comme 1/(1-gamma) et fait diverger l'échelle du plongement
+      quand gamma -> 1 ; normalisé, il reste borné dans [0,1] pour tout gamma.
+      La partition récupérée est inchangée : le point fixe normalisé vaut
+      (1-gamma) fois le non normalisé — même géométrie, échelle bornée.
+
+    Retourne (encoder, lossHistory)."""
     torch.manual_seed(seed)
     size, featureDim = stateFeatures.shape
     features = torch.tensor(np.asarray(stateFeatures, dtype=np.float32), device=device)
@@ -78,7 +83,7 @@ def trainBisimulationEncoder(stateFeatures, succ, label, latentDim=16,
         with torch.no_grad():
             zTarget = targetEncoder(features)[succIdx]
             dSucc = torch.cdist(zTarget, zTarget)             # d cible des successeurs
-            target = labelMismatch + gamma * dSucc
+            target = (1.0 - gamma) * labelMismatch + gamma * dSucc
         loss = torch.mean((dCurrent - target) ** 2)
         optimizer.zero_grad()
         loss.backward()

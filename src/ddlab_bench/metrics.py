@@ -90,3 +90,28 @@ def basinHomomorphism(features, attractorId, seed=0, nInit=10):
         "ami": float(adjusted_mutual_info_score(attractorId, clusters)),
         "vMeasure": float(v_measure_score(attractorId, clusters)),
     }
+
+
+def balancedAmi(reference, clusters, perClass=64, draws=5, seed=0):
+    """AMI rééquilibrée pour des classes de référence déséquilibrées.
+
+    L'AMI standard est dominée par les grosses classes : un bassin géant
+    « écrase » la mesure. On échantillonne au plus `perClass` états par classe
+    de référence — le géant est plafonné, les petites classes pleinement
+    représentées —, on calcule l'AMI sur cet échantillon équilibré, et on
+    moyenne sur `draws` tirages.
+
+    Caveat : une classe plus petite que `perClass` reste sous-représentée ; la
+    pondération supprime la domination du géant, pas tout déséquilibre."""
+    reference = np.asarray(reference)
+    clusters = np.asarray(clusters)
+    rng = np.random.default_rng(seed)
+    groups = [np.where(reference == c)[0] for c in np.unique(reference)]
+    scores = []
+    for _ in range(draws):
+        sample = np.concatenate([
+            rng.choice(group, size=min(perClass, len(group)), replace=False)
+            for group in groups
+        ])
+        scores.append(adjusted_mutual_info_score(reference[sample], clusters[sample]))
+    return float(np.mean(scores))
