@@ -34,7 +34,7 @@ introduce a testbed in which the causal structure is known \emph{exactly}. On
 elementary cellular automata and random Boolean networks small enough to
 enumerate, the entire dynamics --- basins of attraction, attractors,
 garden-of-Eden states, the bisimulation quotient --- is computed exactly and
-used as ground truth. With it we show three things. (i) A model trained only
+used as ground truth. With it we show four things. (i) A model trained only
 to predict the forward dynamics develops a representation that linearly
 encodes \emph{local} causal facts (garden-of-Eden membership, in-degree).
 (ii) A compressed, structure-preserving discretization of the state space
@@ -45,8 +45,12 @@ to recover it. We explain the failure: the dynamical quotient is
 \emph{perceptually shattered}, as dispersed in observation space as a random
 partition, so objectives biased toward observation proximity optimize a
 geometry orthogonal to the causal one. The barrier is structural, not an
-optimization artifact. A single inductive bias --- locality --- unifies the
-positive and negative results.
+optimization artifact. (iv) The failure is nonetheless specific to the
+objective class: an objective defined recursively on the dynamics --- a
+learned bisimulation metric --- recovers the quotient (adjusted mutual
+information up to $0.95$), where every observation-proximity objective stays
+near zero. A single inductive bias --- locality --- unifies the local success
+and the global failure.
 \end{abstract}
 
 \section{Introduction}
@@ -69,7 +73,7 @@ garden-of-Eden states, transient lengths, and the bisimulation quotient. This
 exact ground truth lets us audit a representation learner the way one audits a
 model against a known answer.
 
-Using the testbed we establish three results.
+Using the testbed we establish four results.
 
 \begin{itemize}
   \item \textbf{Forward training recovers local causal structure}
@@ -87,6 +91,11 @@ Using the testbed we establish three results.
     fail. Section~\ref{sec:why} explains why: the dynamical quotient is
     \emph{perceptually shattered}, so observation-proximity objectives are
     structurally mismatched to it.
+  \item \textbf{A recursive objective recovers it}
+    (Section~\ref{sec:positive}). An objective defined recursively on the
+    dynamics --- a learned bisimulation metric --- recovers the quotient that
+    the perceptual objectives miss, placing the failure in the objective and
+    not in the data.
 \end{itemize}
 
 A single mechanism --- an inductive bias toward locality in
@@ -343,14 +352,88 @@ recovers \emph{local} causal structure; here we find the basin is perceptually
 \emph{non-local}. One inductive bias --- locality --- explains both the local
 success and the global failure.
 
+\section{The Positive Control: A Recursive Objective Recovers the Quotient}
+\label{sec:positive}
+
+If the failure of Section~\ref{sec:fail} is a property of the \emph{objective}
+--- its locality bias --- and not of the data, then an objective that does not
+reward observation proximity should recover the quotient. We construct one and
+test it.
+
+We train an encoder $\phi$ on the fixed-point equation of the bisimulation
+metric,
+\[
+  d\big(\phi(x),\phi(x')\big) \;\approx\;
+  \mathbb{1}[\ell(x)\neq\ell(x')] \;+\; \gamma\,
+  d\big(\phi(\succf(x)),\phi(\succf(x'))\big),
+\]
+where $\ell$ is a coarse base observable (state density), $\gamma<1$ makes the
+recursion contractive, and the recursive term's target is read from a
+slowly-updated copy of $\phi$. The objective never references observation
+proximity beyond $\ell$: it lives entirely on the transition graph. We score
+the embedding ($k$-means, then AMI) against the exact bisimulation quotient
+relative to $\ell$.
+
+\begin{table}[h]
+\centering
+\caption{AMI with the exact bisimulation quotient ($n{=}10$). A recursive
+dynamics objective recovers the quotient that the perceptual baseline misses;
+the recursive term itself --- not the base observable --- does the work.}
+\label{tab:positive}
+\begin{tabular}{lccc}
+\toprule
+objective & rule 250 & rule 110 & rule 30 \\
+          & (ordered) & (complex) & (chaotic) \\
+\midrule
+raw bits (perceptual)               & 0.10 & 0.01 & 0.01 \\
+base observable only ($\gamma{=}0$) & 0.60 & 0.26 & 0.19 \\
+recursive ($\gamma{=}0.5$)          & \textbf{0.95} & \textbf{0.70} & \textbf{0.52} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The recursive objective recovers the quotient in every regime
+(Table~\ref{tab:positive}): AMI $0.95/0.70/0.52$, against $\le 0.10$ for the
+raw-observation baseline. The recursion is what matters --- the base observable
+alone ($\gamma{=}0$) reaches only $0.60/0.26/0.19$; adding the recursive
+``futures of futures'' term roughly doubles recovery. Difficulty tracks the
+regime: the ordered quotient is small and almost perfectly recovered, the
+chaotic quotient has many blocks and is recovered only in part.
+
+\paragraph{Robustness and metric-level recovery.}
+A robustness check at $n{=}9$ over five seeds gives consistent AMI
+($0.94/0.78/0.62$, standard deviation below $0.03$): the result is not a
+single-seed artifact. It also holds at the level of the \emph{metric}, not
+only the partition --- the learned embedding's pairwise distances correlate
+$0.90$--$0.95$ (Pearson) with the \emph{exact} bisimulation metric obtained by
+enumeration. That correlation is near the ceiling for a Euclidean embedding of
+the same dimension: the best classical-MDS embedding of the exact metric
+reaches $0.96$--$0.97$. The encoder is therefore near-optimal for its
+hypothesis class, and the residual gap to $1.0$ measures the mild
+non-Euclideanness of the bisimulation metric itself.
+
+The barrier of Sections~\ref{sec:fail}--\ref{sec:why} is therefore real but
+\emph{objective-specific}: a property of observation-proximity objectives that
+dissolves for an objective defined on the dynamics. One honest qualification:
+the bisimulation quotient is finer than the basin partition --- it distinguishes
+transient phase, which the basin ignores --- so recovering \emph{basins}
+specifically is a separate, harder target. A succ-invariance variant
+($\phi(x)\approx\phi(\succf(x))$, the Koopman eigenvalue-one objective)
+targets the coarser basin partition directly. It shows signal in the ordered
+regime ($n{=}10$, AMI $0.48$ against $0.00$ for the perceptual baseline) but
+is not robust --- it degrades toward chaos and varies sharply with system size
+(the same measurement at $n{=}9$ falls below $0.1$) --- so we report it only
+as exploratory.
+
 \section{Discussion and Limitations}
 
 \paragraph{Implications.}
 Reconstruction and instance-contrastive latents should not be assumed to carry
 causal-dynamical structure; where the target structure is non-local in
 observation space, an objective with a locality bias is structurally
-mismatched to it. This is an argument for objectives defined recursively on
-the dynamics --- bisimulation-style --- over observation-proximity objectives.
+mismatched to it. Section~\ref{sec:positive} bears this out: an objective
+defined recursively on the dynamics, rather than on observation proximity,
+recovers the quotient that every perceptual objective misses.
 The mismatch measure of Section~\ref{sec:why} is a cheap a-priori check: if a
 target structure is perceptually shattered relative to the observation, a
 perceptual objective will fail before any training is run. More broadly, the
@@ -365,7 +448,10 @@ the mechanism to large, continuous, learned-latent world models is the natural
 next question and is not established here. Several results use single
 instances; the central negative (the perceptual-shatter ratio) is robust
 across regimes, but ensemble averaging would strengthen the secondary
-observations.
+observations. The recursive objective of Section~\ref{sec:positive} is shown
+at $\gamma{=}0.5$; a sweep finds recovery stable across $\gamma$ with an
+optimum near $\gamma\approx0.7$, so it is not a sensitive hyperparameter. The
+basin-targeting invariance variant is the genuinely fragile secondary result.
 
 \section{Conclusion}
 
@@ -374,12 +460,15 @@ structure-preserving discretization of the state space provably exists --- the
 dynamical quotient --- and five standard representation-learning objectives
 provably fail to recover it from observations. The reason is structural: the
 quotient is perceptually shattered, and objectives biased toward observation
-proximity optimize an orthogonal geometry. Perception is not causation, and an
-objective that pursues the first will not find the second.
+proximity optimize an orthogonal geometry. An objective defined instead on the
+dynamics --- a recursive bisimulation metric --- recovers it, placing the
+failure in the objective and not in the data. Perception is not causation; an
+objective that pursues the first will not find the second, but one defined on
+the dynamics will.
 
 \paragraph{Reproducibility.}
 All experiments are exact or seeded; the implementation (the testbed, the
-eleven experiment phases, and a test suite) is released.
+experiment scripts, and a test suite) is released.
 
 \bibliographystyle{plainnat}
 \bibliography{references}

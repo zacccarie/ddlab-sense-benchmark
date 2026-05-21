@@ -16,7 +16,7 @@ CROSS-LIST
   nlin.CG  Cellular Automata and Lattice Gases
 
 COMMENTS  (arXiv "Comments" field)
-  7 pages, 3 figures, 4 tables. Code and full experiment suite:
+  9 pages, 3 figures, 5 tables. Code and full experiment suite:
   <PUBLIC REPO URL — see prerequisites>
 
 ABSTRACT  (paste as plain text into the arXiv abstract field)
@@ -29,7 +29,7 @@ is known exactly. On elementary cellular automata and random Boolean
 networks small enough to enumerate, the entire dynamics -- basins of
 attraction, attractors, garden-of-Eden states, the bisimulation
 quotient -- is computed exactly and used as ground truth. With it we
-show three things. (i) A model trained only to predict the forward
+show four things. (i) A model trained only to predict the forward
 dynamics develops a representation that linearly encodes local causal
 facts (garden-of-Eden membership, in-degree). (ii) A compressed,
 structure-preserving discretization of the state space provably
@@ -40,9 +40,13 @@ all fail to recover it. We explain the failure: the dynamical
 quotient is perceptually shattered, as dispersed in observation space
 as a random partition, so objectives biased toward observation
 proximity optimize a geometry orthogonal to the causal one. The
-barrier is structural, not an optimization artifact. A single
-inductive bias -- locality -- unifies the positive and negative
-results.
+barrier is structural, not an optimization artifact. (iv) The failure
+is nonetheless specific to the objective class: an objective defined
+recursively on the dynamics -- a learned bisimulation metric --
+recovers the quotient (adjusted mutual information up to 0.95), where
+every observation-proximity objective stays near zero. A single
+inductive bias -- locality -- unifies the local success and the
+global failure.
 ------------------------------------------------------------
 
 SUBMISSION FILE SET  (upload to arXiv)
@@ -70,6 +74,6 @@ LICENSE
   Recommended: the arXiv default non-exclusive license, or CC BY 4.0.
 
 STATUS
-  Draft is complete and compiles (7 pages, tectonic). References
-  verified. Optional strengthening before submission: a sixth,
-  non-contrastive SSL objective; fuller related-work prose.
+  Draft complete and compiles (9 pages, tectonic). References verified.
+  Includes the positive control -- a recursive bisimulation objective
+  recovers the quotient. Optional strengthening: fuller related-work prose.
