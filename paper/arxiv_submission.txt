@@ -17,7 +17,7 @@ CROSS-LIST
 
 COMMENTS  (arXiv "Comments" field)
   9 pages, 3 figures, 5 tables. Code and full experiment suite:
-  https://github.com/ateliermanuel/ddlab-sense-benchmark
+  https://github.com/zacccarie/ddlab-sense-benchmark
 
 ABSTRACT  (paste as plain text into the arXiv abstract field)
 ------------------------------------------------------------
@@ -64,9 +64,11 @@ SUBMISSION FILE SET  (upload to arXiv)
   the paper/ directory works, minus paper.pdf).
 
 PREREQUISITES BEFORE SUBMITTING
-  1. DONE. Repository pushed to:
-     https://github.com/ateliermanuel/ddlab-sense-benchmark
-     URL added to the Comments field above and to paper.tex Section 9.
+  1. Repository created (private) at:
+     https://github.com/zacccarie/ddlab-sense-benchmark
+     Make it PUBLIC before submitting -- the paper references it as
+     released code. URL is in the Comments field above and in
+     paper.tex Section 9.
   2. Choose a license on the arXiv form (see below).
 
 LICENSE
