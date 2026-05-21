@@ -1,0 +1,380 @@
+% =====================================================================
+% DDLab sense-extraction benchmark — workshop paper, first draft.
+%
+% STATUS: draft. Compiles with pdflatex + bibtex (standard article class;
+% retarget to a specific workshop style file before submission).
+%
+% GAPS TO CLOSE BEFORE SUBMISSION:
+%  1. Related work — verify every reference in references.bib (years,
+%     venues, authors) against sources; expand the positioning vs
+%     Othello-GPT / emergent world representations and bisimulation work.
+%  2. Section 4 (Z-spectrum) — the edge-of-chaos lift is partly confounded
+%     with label degeneracy at the ordered/chaotic extremes; it is framed
+%     here as a secondary observation, not a headline. Keep it that way or
+%     cut it.
+%  3. Figures — three placeholders (\figtodo) to replace with real plots:
+%     basin-field visualization, AMI-vs-K cliff, perceptual-mismatch bars.
+%  4. Optional: add a sixth, non-contrastive SSL objective (BYOL/VICReg)
+%     to strengthen the "structural, not optimization" claim.
+%  5. Scale (n<=14) is a deliberate design choice (exact ground truth
+%     requires enumerability) — stated in Limitations; keep owning it.
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\figtodo}[1]{%
+  \begin{center}\fbox{\parbox{0.86\linewidth}{\centering\vspace{1.6em}%
+  \textit{[FIGURE TODO: #1]}\vspace{1.6em}}}\end{center}}
+\newcommand{\succf}{\mathrm{succ}}
+
+\title{Perception Is Not Causation:\\
+Auditing Representation Learners Against Exact Causal Ground Truth}
+\author{Zaccarie Aglas\\\texttt{zaccarie@zaccarie.fr}}
+\date{Draft --- \today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Representation learning is usually evaluated without access to the causal
+structure of the data: a probe reaches 85\% accuracy and we cannot tell
+whether a feature is genuinely represented or the number is an artifact. We
+introduce a testbed in which the causal structure is known \emph{exactly}. On
+elementary cellular automata and random Boolean networks small enough to
+enumerate, the entire dynamics --- basins of attraction, attractors,
+garden-of-Eden states, the bisimulation quotient --- is computed exactly and
+used as ground truth. With it we show three things. (i) A model trained only
+to predict the forward dynamics develops a representation that linearly
+encodes \emph{local} causal facts (garden-of-Eden membership, in-degree).
+(ii) A compressed, structure-preserving discretization of the state space
+provably \emph{exists} --- the dynamical quotient. (iii) Yet five standard
+learned-tokenizer objectives --- reconstruction, next-step prediction,
+multi-horizon prediction, and two temporal-contrastive variants --- all fail
+to recover it. We explain the failure: the dynamical quotient is
+\emph{perceptually shattered}, as dispersed in observation space as a random
+partition, so objectives biased toward observation proximity optimize a
+geometry orthogonal to the causal one. The barrier is structural, not an
+optimization artifact. A single inductive bias --- locality --- unifies the
+positive and negative results.
+\end{abstract}
+
+\section{Introduction}
+
+Probing studies ask whether a learned representation encodes some property of
+the data. They report an accuracy. But without the true structure of the
+data, that accuracy is hard to calibrate: it conflates ``the feature is
+explicitly represented'' with ``a powerful probe can compute the feature'' and
+with chance-level artifacts. Studies of emergent world representations face
+the same gap --- the ground truth (e.g.\ a board state) is known, but the
+\emph{dynamical} structure (which states are causally equivalent, which are
+unreachable, how trajectories converge) is not enumerated.
+
+We remove the gap. We study discrete dynamical systems small enough to
+enumerate completely. For an elementary cellular automaton on $n$ cells there
+are $2^n$ states; for $n \le 20$ we build the entire state-transition graph
+and from it compute, \emph{exactly and without sampling}, every dynamical
+object of interest: attractors, basins of attraction, pre-images,
+garden-of-Eden states, transient lengths, and the bisimulation quotient. This
+exact ground truth lets us audit a representation learner the way one audits a
+model against a known answer.
+
+Using the testbed we establish three results.
+
+\begin{itemize}
+  \item \textbf{Forward training recovers local causal structure}
+    (Section~\ref{sec:local}). A model trained only to predict the next state
+    develops a representation from which \emph{local} causal facts ---
+    garden-of-Eden membership, in-degree --- are linearly decodable, well
+    above raw-observation and untrained-network baselines. Long-horizon
+    structure (basin membership) is \emph{not} recovered.
+  \item \textbf{The structure-preserving discretization exists}
+    (Section~\ref{sec:exists}). A compressed tokenization that exactly
+    preserves the basin structure provably exists: the dynamical quotient.
+    We exhibit it constructively.
+  \item \textbf{Learned tokenizers fail to recover it}
+    (Section~\ref{sec:fail}). Five standard learned-tokenizer objectives all
+    fail. Section~\ref{sec:why} explains why: the dynamical quotient is
+    \emph{perceptually shattered}, so observation-proximity objectives are
+    structurally mismatched to it.
+\end{itemize}
+
+A single mechanism --- an inductive bias toward locality in
+observation space --- accounts for both the positive result (local structure
+is recovered) and the negative one (the non-local quotient is missed).
+
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Emergent world representations and probing.}
+Probing for the latent state of a system underlying a sequence model is an
+established paradigm; \citet{li2023emergent} train a sequence model on a
+synthetic task and probe for the world state. Linear probes
+\citep{alain2016probes} operationalize ``explicitly represented.'' We differ
+in two ways: our ground truth is the full \emph{dynamical} structure (basins,
+attractors, the bisimulation quotient), exactly enumerated; and our central
+object of study is the systematic \emph{failure} of learned tokenizers, with a
+structural explanation.
+
+\paragraph{Bisimulation and state abstraction.}
+Bisimulation metrics learn representations that collapse behaviorally
+equivalent states \citep{zhang2021dbc,castro2021mico}. Our testbed gives a
+setting in which the bisimulation quotient is known exactly, so such methods
+can be validated against ground truth rather than evaluated only by downstream
+return.
+
+\paragraph{World models, tokenization, information.}
+Discrete-latent and tokenized world models \citep{vandenoord2017vqvae,
+hafner2023dreamerv3} motivate our ``learned tokenizer'' setting. The
+Information Bottleneck \citep{tishby1999ib} and Shannon's separation of
+transmission from meaning \citep{shannon1948} frame the compression questions.
+
+\paragraph{Discrete dynamics.}
+The exact analysis of cellular-automaton state space --- basins of attraction,
+the $Z$ parameter, the edge of chaos --- follows \citet{wuensche1999z}.
+Analysis of recurrent networks as dynamical systems
+\citep{sussillo2013blackbox} is a methodological precedent.
+
+% TODO: verify all citations; expand positioning vs Othello-GPT follow-ups
+% and the contrastive / CPC literature \citep{vandenoord2018cpc}.
+
+\section{The Testbed: Discrete Dynamics with Exact Ground Truth}
+\label{sec:testbed}
+
+\paragraph{Systems.}
+An elementary cellular automaton (ECA) is a one-dimensional binary automaton
+with a radius-1 neighborhood and periodic boundary; a rule is one of $256$
+local update functions. A state of $n$ cells is an integer in $[0, 2^n)$. We
+also use random Boolean networks (RBN) --- the Kauffman model, with irregular
+wiring --- to check that results are not an artifact of the ECA's regular
+topology.
+
+\paragraph{Exact structure.}
+For $n \le 20$ we enumerate all $2^n$ states and build the complete
+state-transition graph $\succf : S \to S$. Because the graph is functional
+(out-degree one), we compute exactly: the attractor cycles; the basin of
+attraction of each state (the attractor it drains to); all pre-images;
+garden-of-Eden states (no pre-image); transient lengths. The
+\emph{dynamical quotient} is the partition of states by basin --- equivalently,
+the bisimulation quotient under $\succf$. None of this is sampled.
+
+\paragraph{Regimes.}
+Rules span ordered, complex, and chaotic regimes, indexed by the $Z$ parameter
+\citep{wuensche1999z}. We use rule~250 (ordered), rule~110 (complex), and
+rule~30 (chaotic) as representatives.
+
+\figtodo{Basin-of-attraction field of rule 110 ($n{=}9$): a force-directed
+graph, nodes coloured by basin, attractor cycles as hubs, garden-of-Eden
+states as leaves. Generated by the project's visualization script.}
+
+\section{Forward Training Recovers Local Causal Structure}
+\label{sec:local}
+
+We train a small GRU to predict the next state from the current one --- the
+forward (next-token) objective. It reaches one-step accuracy $1.0$ and
+generalizes to held-out basins, so it has learned the rule rather than
+memorized a table.
+
+We then freeze it and probe its representation for causal facts that the
+forward objective never required: garden-of-Eden membership and in-degree.
+These are \emph{inverse} facts --- about a state's past, not its future.
+Table~\ref{tab:probe} reports linear-probe test accuracy on rule~110, against
+two baselines: the raw observation bits, and the same network untrained.
+
+\begin{table}[h]
+\centering
+\caption{Linear-probe decoding of causal-inverse facts (rule 110, $n{=}9$).
+Forward training makes garden-of-Eden membership linearly decodable well above
+the raw-observation and untrained-network baselines.}
+\label{tab:probe}
+\begin{tabular}{lccc}
+\toprule
+target & raw bits & untrained net & forward-trained \\
+\midrule
+garden-of-Eden (acc.) & 0.68 & 0.68 & \textbf{0.86} \\
+in-degree (acc.)      & 0.60 & 0.60 & \textbf{0.77} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Forward training builds a representation in which \emph{local} causal facts
+become linearly accessible. Two caveats keep this honest. First, an MLP probe
+reaches $0.97$ on raw bits too: the facts are computable from the observation;
+the forward representation makes them \emph{linearly} accessible, i.e.\
+disentangled. Second, across the $Z$ spectrum the disentangling effect is
+largest in the complex regime; we report this as a secondary observation, as
+the comparison is partly confounded with label balance at the ordered and
+chaotic extremes.
+
+Crucially, the \emph{long-horizon} structure is \emph{not} recovered: the
+clustering induced by the forward representation has near-zero adjusted mutual
+information (AMI) with the true basin partition. Forward training recovers
+local structure and misses global structure --- a distinction
+Section~\ref{sec:why} explains.
+
+\section{The Structure-Preserving Discretization Exists}
+\label{sec:exists}
+
+Does a tokenization exist that \emph{compresses} the state space yet
+\emph{preserves} the basin structure? It does, and we exhibit it.
+
+Define the horizon quotient $\phi_H(s) = \succf^{H}(s)$: two states share a
+code iff they converge to the same state within $H$ steps. Converging states
+share a basin, so $\phi_H$ \emph{never} merges two basins --- it is, for every
+$H$, a refinement of the dynamical quotient. As $H$ grows, states reach their
+attractor cycles and the number of distinct codes drops sharply.
+
+\begin{table}[h]
+\centering
+\caption{The horizon quotient (rule 110, $n{=}9$, $512$ states; no model). It
+compresses while AMI with the true basin partition stays exactly $1.0$.}
+\label{tab:horizon}
+\begin{tabular}{rccc}
+\toprule
+horizon $H$ & distinct codes & collision rate & AMI vs.\ true basins \\
+\midrule
+0  & 512 & 0.00 & 1.00 \\
+2  & 200 & 0.61 & 1.00 \\
+8  & 109 & 0.79 & 1.00 \\
+16 &  73 & 0.86 & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A discretization that compresses $512$ states to $73$ while preserving the
+basin structure \emph{exactly} therefore exists. The open question is not its
+existence but whether it can be \emph{learned} from observations.
+
+\section{Learned Tokenizers Fail to Recover It}
+\label{sec:fail}
+
+We render each state as an image and train a tokenizer on the images, then
+push the true dynamics through the learned codes and measure how well the
+induced latent transition graph preserves the basin structure (AMI), as a
+function of codebook size $K$.
+
+We test five objectives: image reconstruction; next-image prediction;
+multi-horizon (far-future) image prediction; one-step temporal contrastive
+(InfoNCE with the successor as positive); and far-future temporal contrastive,
+designed to break local perceptual similarity. Table~\ref{tab:cliff} shows the
+first two; the contrastive variants never exceed AMI $\approx 0.12$ at any $K$.
+
+\begin{table}[h]
+\centering
+\caption{AMI vs.\ true basins for learned tokenizers (rule 110, $n{=}9$). At
+$K{=}512$ the tokenization is near-lossless and structure is preserved; the
+first forced compression ($K{=}256$) collapses it --- a cliff, not a slope.}
+\label{tab:cliff}
+\begin{tabular}{lcc}
+\toprule
+objective & AMI at $K{=}512$ & AMI at $K{=}256$ \\
+\midrule
+reconstruction       & 0.95 & 0.02 \\
+next-image prediction & 0.99 & 0.07 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+No objective recovers the quotient under compression. All preserve structure
+only when the tokenization is near-lossless; the first bit of forced
+compression destroys it. We also encountered, and document, the training
+pathologies of this regime --- codebook collapse, and an objective/anti-collapse
+conflict --- which we control for; the cliff is not an artifact of them.
+
+\section{Why: The Perceptual--Dynamical Mismatch}
+\label{sec:why}
+
+The five objectives share an inductive bias: they map perceptually similar
+observations to similar codes. We measure whether that bias can possibly align
+with the dynamical quotient.
+
+For each state we take its perceptual neighbors --- the states one bit away ---
+and measure the fraction that lie in a \emph{different} basin. We compare this
+\emph{mismatch} to the value expected if basins were assigned at random with
+the same sizes.
+
+\begin{table}[h]
+\centering
+\caption{Perceptual--dynamical mismatch ($n{=}9$): fraction of one-bit
+perceptual neighbors in a different basin, vs.\ a random-assignment baseline.
+The ratio is $1.0$ in every regime.}
+\label{tab:mismatch}
+\begin{tabular}{lcccc}
+\toprule
+rule & regime & mismatch & random baseline & ratio \\
+\midrule
+250 & ordered  & 0.004 & 0.004 & 1.00 \\
+110 & complex  & 0.914 & 0.902 & 1.01 \\
+30  & chaotic  & 0.316 & 0.315 & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\figtodo{Perceptual--dynamical mismatch vs.\ the random baseline, bar chart per
+regime --- the two bars are equal in every regime.}
+
+The mismatch equals the random baseline. The basins are \emph{perceptually
+shattered}: as dispersed in observation space as a random partition. Perceptual
+proximity carries no information about basin membership beyond the base rate.
+
+Hence the failure of Section~\ref{sec:fail} is \emph{structural}. An objective
+biased toward observation proximity optimizes a geometry that is provably
+orthogonal to the dynamical quotient --- it is not under-optimized, it is
+optimized toward the wrong target. The image \emph{determines} the basin (it
+determines the state); the barrier is not informational but inductive.
+
+This unifies the paper. Section~\ref{sec:local} found that forward training
+recovers \emph{local} causal structure; here we find the basin is perceptually
+\emph{non-local}. One inductive bias --- locality --- explains both the local
+success and the global failure.
+
+\section{Discussion and Limitations}
+
+\paragraph{Implications.}
+Reconstruction and instance-contrastive latents should not be assumed to carry
+causal-dynamical structure; where the target structure is non-local in
+observation space, an objective with a locality bias is structurally
+mismatched to it. This is an argument for objectives defined recursively on
+the dynamics --- bisimulation-style --- over observation-proximity objectives.
+The mismatch measure of Section~\ref{sec:why} is a cheap a-priori check: if a
+target structure is perceptually shattered relative to the observation, a
+perceptual objective will fail before any training is run. More broadly, the
+testbed itself is a usable methodology --- audit a representation learner on a
+small enumerable system where the causal answer is known.
+
+\paragraph{Limitations.}
+The systems are small ($n \le 14$ in experiments). This is deliberate: exact,
+sampling-free ground truth requires an enumerable state space. The testbed is
+a controlled audit, not a claim about any specific large model; transfer of
+the mechanism to large, continuous, learned-latent world models is the natural
+next question and is not established here. Several results use single
+instances; the central negative (the perceptual-shatter ratio) is robust
+across regimes, but ensemble averaging would strengthen the secondary
+observations.
+
+\section{Conclusion}
+
+On discrete dynamical systems with exact ground truth, a compressed
+structure-preserving discretization of the state space provably exists --- the
+dynamical quotient --- and five standard representation-learning objectives
+provably fail to recover it from observations. The reason is structural: the
+quotient is perceptually shattered, and objectives biased toward observation
+proximity optimize an orthogonal geometry. Perception is not causation, and an
+objective that pursues the first will not find the second.
+
+\paragraph{Reproducibility.}
+All experiments are exact or seeded; the implementation (the testbed, the
+eleven experiment phases, and a test suite) is released.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
