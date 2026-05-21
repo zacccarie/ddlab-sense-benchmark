@@ -5,6 +5,7 @@ __pycache__/
 .pytest_cache/
 data/
 paper/paper.pdf
+paper/paper_fr.pdf
 paper/*.aux
 paper/*.bbl
 paper/*.log
