@@ -104,11 +104,18 @@ class BasinField:
     goe: list
 
 
-def computeBasinField(ruleNumber, n):
-    """Champ de bassins complet d'une règle ECA, par énumération exhaustive (2^n états)."""
-    succ = buildSuccessorArray(ruleNumber, n)
+def basinFieldFromSuccessor(succ, n, label):
+    """Champ de bassins à partir d'un graphe de transition quelconque.
+
+    Générique: fonctionne pour tout système dynamique discret (ECA, RBN...),
+    `succ` étant le seul ingrédient. `label` identifie le système."""
     preimages = buildPreimageArray(succ)
     attractorId, attractors = findAttractors(succ)
     transient = transientLengths(succ, attractors)
     goe = gardenOfEden(preimages)
-    return BasinField(ruleNumber, n, succ, preimages, attractorId, attractors, transient, goe)
+    return BasinField(label, n, succ, preimages, attractorId, attractors, transient, goe)
+
+
+def computeBasinField(ruleNumber, n):
+    """Champ de bassins complet d'une règle ECA, par énumération exhaustive (2^n états)."""
+    return basinFieldFromSuccessor(buildSuccessorArray(ruleNumber, n), n, ruleNumber)

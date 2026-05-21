@@ -8,11 +8,13 @@ from ddlab_bench.eca import ruleTable, stepState, buildSuccessorArray
 from ddlab_bench.basins import (
     BasinField,
     computeBasinField,
+    basinFieldFromSuccessor,
     buildPreimageArray,
     findAttractors,
     gardenOfEden,
     transientLengths,
 )
+from ddlab_bench.rbn import RandomBooleanNetwork
 from ddlab_bench.classify import zParameter, structuralSummary, regimeHint
 from ddlab_bench.trajectories import generateTrajectories, splitByBasins
 from ddlab_bench.artifacts import buildBundle, loadBundle
@@ -23,6 +25,8 @@ __all__ = [
     "buildSuccessorArray",
     "BasinField",
     "computeBasinField",
+    "basinFieldFromSuccessor",
+    "RandomBooleanNetwork",
     "buildPreimageArray",
     "findAttractors",
     "gardenOfEden",
