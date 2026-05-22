@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from ddlab_bench.basins import basinFieldFromSuccessor
 from ddlab_bench.newton import (
     ROOTS,
     basinGrid,
@@ -10,6 +11,7 @@ from ddlab_bench.newton import (
     boxCountingDimension,
     newtonStep,
     perceptualMismatch,
+    quantizedSuccessor,
 )
 
 
@@ -65,3 +67,15 @@ def test_boundary_basin_count_newton_is_multi_basin():
     # frontière de Julia : les trois bassins se touchent -> compte > 2
     labels = basinGrid(lam=1.0, resolution=256)
     assert boundaryBasinCount(labels) > 2.0
+
+
+def test_quantized_successor():
+    succ, positions, basins = quantizedSuccessor(lam=1.0, resolution=32)
+    size = 32 * 32
+    assert succ.shape == (size,)
+    assert positions.shape == (size, 2)
+    assert succ.min() >= 0 and succ.max() < size
+    assert set(np.unique(basins)).issubset({-1, 0, 1, 2})
+    # graphe fonctionnel quantifié -> champ de bassins calculable
+    field = basinFieldFromSuccessor(succ, 0, "newton-quant")
+    assert len(field.attractors) >= 1

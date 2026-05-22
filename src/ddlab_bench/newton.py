@@ -140,3 +140,37 @@ def boundaryBasinCount(labels, window=3):
                        max(0, c - half):min(res, c + half + 1)]
         counts.append(len(set(block[block >= 0].tolist())))
     return float(np.mean(counts))
+
+
+def quantizedSuccessor(lam, resolution, extent=2.0, maxIter=200, tol=1e-6):
+    """Graphe de transition discrétisé du flot de Newton sur une grille.
+
+    succ[k] = indice de la cellule la plus proche de N(z_k) — la carte de
+    Newton quantifiée sur la grille resolution x resolution. La quantification
+    n'affecte QUE le graphe entraîné ; la vérité-terrain bassin reste exacte,
+    calculée par itération de la carte continue (contrairement au CML du §13,
+    où la quantification détruisait le système lui-même).
+
+    Retourne (succ, positions, basins) :
+      succ      (size,)   graphe de transition quantifié,
+      positions (size, 2) coordonnées (Re, Im) de chaque cellule,
+      basins    (size,)   bassin exact de chaque cellule (0/1/2, -1 si divergent)."""
+    axis = np.linspace(-extent, extent, resolution)
+    real, imag = np.meshgrid(axis, axis)
+    z = (real + 1j * imag).reshape(-1)
+    selfIdx = np.arange(len(z), dtype=np.int64)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        stepped = newtonStep(z, lam)
+    finite = np.isfinite(stepped)
+    step = axis[1] - axis[0]
+    col = np.where(
+        finite, np.clip(np.round((stepped.real - axis[0]) / step), 0, resolution - 1), 0
+    )
+    row = np.where(
+        finite, np.clip(np.round((stepped.imag - axis[0]) / step), 0, resolution - 1), 0
+    )
+    # pas non fini (z proche de 0, divergence) : la cellule reste son successeur
+    succ = np.where(finite, (row * resolution + col).astype(np.int64), selfIdx)
+    positions = np.stack([z.real, z.imag], axis=1).astype(np.float32)
+    basins = basinLabel(z, lam, maxIter=maxIter, tol=tol)
+    return succ, positions, basins
