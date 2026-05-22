@@ -203,5 +203,7 @@ def spinGlassChain(n, temperature, seed=0):
             deltaE = 2.0 * sig[i] * field[i]
             accept = 1.0 if deltaE <= 0.0 else np.exp(-deltaE / temperature)
             P[s, s ^ (1 << i)] = accept / n
-        P[s, s] = 1.0 - P[s].sum()
+        # diagonale = proba de rester ; clampée pour absorber l'erreur flottante
+        # (somme des acceptations = 1 ± epsilon_machine quand tous les pas passent)
+        P[s, s] = max(0.0, 1.0 - P[s].sum())
     return MarkovChain(P), energy
