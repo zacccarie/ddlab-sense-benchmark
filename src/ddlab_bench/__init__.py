@@ -16,6 +16,12 @@ from ddlab_bench.basins import (
     transientLengths,
 )
 from ddlab_bench.rbn import RandomBooleanNetwork
+from ddlab_bench.blockca import (
+    BlockCellularAutomaton,
+    computeBlockCaField,
+    coarseProjection,
+    coarseDensityLabel,
+)
 from ddlab_bench.cml import CoupledMapLattice, logisticMap
 from ddlab_bench.classify import zParameter, structuralSummary, regimeHint
 from ddlab_bench.trajectories import generateTrajectories, splitByBasins
@@ -30,7 +36,13 @@ from ddlab_bench.renormalization import (
     bisimulationMetric,
 )
 from ddlab_bench.agglomerative_ib import agglomerativeIB, mergeCost, partitionAt
-from ddlab_bench.markov import MarkovChain, hierarchicalChain, noisyEcaChain
+from ddlab_bench.markov import (
+    MarkovChain,
+    hierarchicalChain,
+    hierarchicalGraphChain,
+    noisyEcaChain,
+    spinGlassChain,
+)
 
 __all__ = [
     "ruleTable",
@@ -40,6 +52,10 @@ __all__ = [
     "computeBasinField",
     "basinFieldFromSuccessor",
     "RandomBooleanNetwork",
+    "BlockCellularAutomaton",
+    "computeBlockCaField",
+    "coarseProjection",
+    "coarseDensityLabel",
     "CoupledMapLattice",
     "logisticMap",
     "buildPreimageArray",
@@ -66,5 +82,7 @@ __all__ = [
     "partitionAt",
     "MarkovChain",
     "hierarchicalChain",
+    "hierarchicalGraphChain",
     "noisyEcaChain",
+    "spinGlassChain",
 ]
