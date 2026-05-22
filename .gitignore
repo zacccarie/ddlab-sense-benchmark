@@ -6,6 +6,7 @@ __pycache__/
 data/
 paper/paper.pdf
 paper/paper_fr.pdf
+paper/paper2.pdf
 paper/*.aux
 paper/*.bbl
 paper/*.log

@@ -1,0 +1,456 @@
+% A Hierarchy Needs a Landscape -- arXiv preprint source.
+% Compiles with pdflatex + bibtex, or with tectonic.
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xurl}
+
+\newcommand{\succf}{\mathrm{succ}}
+
+\title{A Hierarchy Needs a Landscape:\\
+Recovering Renormalization Hierarchies in Enumerable Dynamical Systems}
+\author{Zaccarie Aglas\\ Independent Researcher\\ \texttt{zaccarie@zaccarie.fr}}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A coarse-graining hierarchy --- a tower of successively coarser descriptions,
+each consistent with the dynamics --- is the object renormalization,
+multi-scale community detection, and computational mechanics all reach for.
+When does such a hierarchy exist for a given dynamical system, and can it be
+recovered without supervision? We study the question on discrete dynamical
+systems small enough to enumerate completely, so that the transition operator,
+its spectrum, the stationary measure, and every mutual information are computed
+\emph{exactly} --- no sampling, no variational estimator. We report four
+things. (i)~Agglomerative Information Bottleneck, run with exact mutual
+information, recovers the renormalization quotient; on a deterministic
+automaton it recovers the basin partition exactly, as a zero-cost merge
+plateau. (ii)~On a Markov chain with a planted nested-metastable structure, the
+transfer-operator spectrum and the agglomerative bottleneck recover every
+planted level, and agree. (iii)~The hierarchy is a \emph{Markov-time flow}: as
+the random-walk time grows, fine levels dissolve in order and coarse ones
+persist --- time is the renormalization parameter. (iv)~The hierarchy does
+\emph{not} emerge from a noised deterministic automaton --- a near-permutation
+operator with no spectral gap --- but \emph{does} emerge, ex nihilo, from a
+spin glass: a rough random landscape grows a multi-level metastable hierarchy
+as it cools. The condition is landscape roughness, not stochasticity. A
+hierarchy needs a landscape.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Many ideas about structure across scales share one object: a \emph{hierarchy of
+coarse-grainings}. The renormalization group builds a sequence of effective
+descriptions, each obtained by integrating out fine detail. Multi-scale
+community detection reads a network at a ladder of resolutions. Computational
+mechanics compresses a process to its causal states, the minimal sufficient
+statistic of its future~\citep{crutchfield1989}. In each case the object is a tower
+$Q_0 \supset Q_1 \supset \cdots$ of partitions of the state space, each coarser
+than the last and each still compatible with the dynamics.
+
+Two questions are usually entangled and rarely answered exactly. \emph{When
+does such a hierarchy exist} for a given dynamical system? And \emph{can it be
+recovered} from the dynamics alone, without being told the levels in advance?
+The difficulty is methodological: on a large model the hierarchy is never known
+exactly, so a recovered tower cannot be scored against ground truth, and
+mutual-information quantities must be estimated, with all the bias that entails.
+
+We remove the methodological gap by working on dynamical systems small enough
+to enumerate completely. The full state space, the transition operator, its
+spectrum, the stationary measure, and every joint distribution --- hence every
+mutual information --- are computed \emph{exactly}, without sampling. On such a
+system a recovered hierarchy can be compared to an exact reference, and the
+Information Bottleneck can be run with the true joint $p(x,y)$ rather than an
+estimate. (The same enumerable testbed underlies a companion study of
+representation learning; here we study its multi-scale structure.)
+
+We report four results.
+\begin{itemize}
+  \item \textbf{The method recovers the quotient}
+    (Section~\ref{sec:method}). Agglomerative Information Bottleneck, run with
+    exact mutual information, recovers the renormalization quotient. On a
+    deterministic automaton, with the dynamical fate as the relevant variable,
+    it recovers the basin partition \emph{exactly}, as a zero-cost merge
+    plateau --- but the deterministic hierarchy is only one level deep.
+  \item \textbf{A planted hierarchy is recovered exactly}
+    (Section~\ref{sec:planted}). On a Markov chain with a planted
+    nested-metastable structure, the transfer-operator spectrum and the
+    agglomerative bottleneck each recover every planted level, and agree.
+  \item \textbf{The hierarchy is a Markov-time flow}
+    (Section~\ref{sec:flow}). On a random walk over a modular graph, sweeping
+    the walk time makes the recovered hierarchy coarsen: fine levels dissolve
+    in order, coarse ones persist. Markov time is the renormalization
+    parameter.
+  \item \textbf{A hierarchy needs a landscape}
+    (Section~\ref{sec:emergence}). No hierarchy emerges from a noised
+    deterministic automaton --- its transfer operator is a near-permutation
+    with no spectral gap. A deep hierarchy \emph{does} emerge, with nothing
+    planted, from a spin glass: a rough random energy landscape grows a
+    multi-level metastable tower as it cools. The condition is landscape
+    roughness, not stochasticity.
+\end{itemize}
+
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Bisimulation and state abstraction.}
+Bisimulation metrics quantify the behavioural equivalence of states
+\citep{ferns2004metrics}; learned variants --- deep bisimulation for control
+\citep{zhang2021dbc} and MICo \citep{castro2021mico} --- train representations
+that collapse behaviourally equivalent states, and are judged by downstream
+control return. The bisimulation quotient is precisely the object these methods
+approximate. We differ in where we stand: on an enumerable system the quotient
+is \emph{known exactly}, so a learned objective can be \emph{audited} against
+ground truth rather than validated only by reward. The recursive objective of
+Section~\ref{sec:method} is the bisimulation fixed-point equation, and the
+testbed scores how well it recovers the exact quotient.
+
+\paragraph{World models and learned latents.}
+Discrete-latent and tokenized world models \citep{vandenoord2017vqvae,
+hafner2023dreamerv3} learn a latent dynamics from observations. Whether the
+latent captures the \emph{causal-dynamical} structure of the environment ---
+which states are dynamically equivalent, how trajectories converge --- is
+normally unknowable: there is no ground-truth dynamical partition to check
+against. The present testbed supplies one.
+
+\paragraph{Computational mechanics.}
+The causal states of a process \citep{crutchfield1989} are the minimal
+sufficient statistic of its future --- the coarsest partition of histories that
+preserves prediction. The renormalization quotient is the
+deterministic-dynamics counterpart, and the agglomerative bottleneck of
+Section~\ref{sec:method} recovers it. We add exact enumeration: the causal
+partition is computed, not estimated.
+
+\paragraph{Multi-scale community detection.}
+Reading a network at a ladder of random-walk timescales --- Markov stability
+\citep{delvenne2010stability} --- is the closest precedent for the Markov-time
+flow of Section~\ref{sec:flow}. We recast it as a renormalization flow on a
+dynamical system, and run it against exact ground truth.
+
+\paragraph{Position.}
+Across these literatures the gap is the same: the dynamical structure a
+representation ought to capture is never known exactly, so methods are learned
+and validated only indirectly. Our contribution is orthogonal --- an
+\emph{exact-ground-truth audit}. On enumerable dynamical systems the
+bisimulation quotient, the transfer spectrum, and every mutual information are
+computed without sampling; a representation learner is then measured against the
+true answer.
+
+\section{Setup: Enumerable Dynamics and the Renormalization Quotient}
+\label{sec:setup}
+
+\paragraph{Systems.}
+We study dynamical systems on a finite state space $S$ small enough to
+enumerate. A \emph{deterministic} system is a map $\succf : S \to S$ --- for
+us, an elementary cellular automaton (ECA) on $n$ cells, $|S| = 2^n$~\citep{wuensche1999z}. A
+\emph{stochastic} system is a row-stochastic transition matrix $P$ on $S$ ---
+a Markov chain. In both cases, because $|S|$ is enumerated, we hold the
+\emph{entire} operator: the functional graph $\succf$, or the matrix $P$ with
+its powers $P^t$, its eigendecomposition, and its stationary measure $\pi$. No
+quantity below is sampled.
+
+\paragraph{The renormalization quotient.}
+Fix a coarse base observable $\ell : S \to L$. The \emph{renormalization
+quotient} relative to $\ell$ is the coarsest partition of $S$ that refines
+$\ell$ and is compatible with the dynamics --- $x \equiv x'$ implies their
+successors are equivalent. It is the bisimulation quotient under the dynamics;
+it is computed exactly by partition refinement \citep{paigetarjan1987},
+converging in at most $|S|$ steps. Without a base observable coarser than the
+identity the quotient of a deterministic system is trivial: $\ell$ is what
+defines the macroscopic variables. A \emph{hierarchy} is a tower of such
+quotients at increasing coarseness.
+
+\paragraph{The transfer operator.}
+For a Markov chain, $P$ is the transfer (Koopman) operator. Its eigenvalues
+near $1$ are the slow modes --- the metastable coordinates; gaps in the
+spectrum of relaxation times $t = -1/\log|\lambda|$ mark the boundaries between
+scales. For a deterministic system $\succf$ the transfer operator is a
+permutation matrix, a fact that will matter in Section~\ref{sec:emergence}.
+
+\section{Method: Agglomerative Bottleneck with Exact Mutual Information}
+\label{sec:method}
+
+To recover a hierarchy \emph{without} being given the levels, we need an
+objective that builds the tower bottom-up. We use the agglomerative
+Information Bottleneck \citep{slonim2000aib,tishby1999ib}.
+
+Fix a \emph{relevant variable} $Y$ --- the dynamical future of a state (the
+fate it reaches, or its distribution after $t$ steps). Each state begins in its
+own block. At each step we merge the pair of blocks whose merge loses the least
+relevant information $I(Z;Y)$; the Slonim--Tishby merge cost is
+\[
+  \Delta I(z_i,z_j) \;=\; \big(p(z_i)+p(z_j)\big)\;
+  \mathrm{JS}\big(p(y\mid z_i),\,p(y\mid z_j)\big),
+\]
+the Jensen--Shannon divergence of the two future distributions, weighted by
+mass. The sequence of merges is a dendrogram --- the hierarchy
+$Q_0 \supset Q_1 \supset \cdots$, with no level imposed in advance.
+
+The enumerable setting is what makes this exact. Because the state space is
+enumerated and the dynamics is known, the joint $p(x,y)$ is exact; hence
+$I(Z;Y)$, and every merge cost, is computed \emph{exactly}. There is no
+variational lower bound and no estimator bias --- the usual obstacle to
+information-theoretic clustering is simply absent.
+
+\paragraph{Validation on a deterministic automaton.}
+On an ECA, take the relevant variable to be the dynamical fate --- the
+attractor each state reaches. States in the same basin have identical fate, so
+their merge cost is exactly zero; the agglomerative bottleneck performs all
+within-basin merges first, at zero cost, and the partition at that plateau is
+exactly the basin partition (adjusted mutual information $1.0$ with the true
+basins, on ordered, complex, and chaotic rules alike). The macroscopic variable
+``which basin'' is not imposed --- it is \emph{discovered}, as the coarsest
+lossless compression of the state space relative to fate.
+
+\paragraph{The relevant variable gates the hierarchy.}
+The recovered hierarchy depends entirely on $Y$. With the dynamical fate as
+$Y$, the basin partition emerges; with a perceptual observable --- the cell
+density of the far-future state --- a \emph{different}, finer partition emerges,
+one whose adjusted mutual information with the basins is near zero. What
+emerges is the structure relevant to the chosen $Y$, nothing more. This is a
+useful warning, but on a deterministic system it is also the end of the story:
+the fate is a one-shot label, so the recovered hierarchy is a single level ---
+states, then basins, then nothing. A deep tower needs a richer substrate. The
+rest of the paper supplies one.
+
+\section{Exact Recovery of a Planted Hierarchy}
+\label{sec:planted}
+
+We first check that a genuine multi-level hierarchy, when one exists, is
+recovered. We plant one. A \emph{hierarchical Markov chain} is built from a
+tree of blocks: $b$ children per node, $D$ levels, $m$ micro-states per leaf;
+two states communicate at a rate that decays with the depth of their lowest
+common ancestor --- fast mixing within a leaf, slow between deep branches. The
+planted tree is the ground truth. We test a three-level chain
+($2^3$ leaves $\times\, 8$ micro-states $= 64$ states).
+
+Two independent readings recover it (Table~\ref{tab:planted}). The transfer
+spectrum sorts the relaxation times into clean packets; the number of modes per
+packet is exactly $\#\text{blocks}(d) - \#\text{blocks}(d{+}1)$, so the spectrum
+\emph{encodes} the planted tree. The agglomerative bottleneck, with the
+one-step future as $Y$, recovers every planted level at adjusted mutual
+information $1.0$. Spectrum and bottleneck --- one linear-algebraic, one
+information-theoretic --- agree exactly.
+
+\begin{table}[h]
+\centering
+\caption{A planted three-level hierarchical Markov chain ($64$ states) is
+recovered exactly by two independent methods.}
+\label{tab:planted}
+\begin{tabular}{lccc}
+\toprule
+planted level & blocks & spectral modes ($t$) & bottleneck AMI \\
+\midrule
+super-blocks & 2 & 1 mode ($t{\approx}20$)  & 1.00 \\
+sub-blocks   & 4 & 2 modes ($t{\approx}6.3$) & 1.00 \\
+leaves       & 8 & 4 modes ($t{\approx}2.0$) & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{The Hierarchy Is a Markov-Time Flow}
+\label{sec:flow}
+
+A hierarchy is not a static partition but a \emph{flow}. We make the point on a
+random walk over a modular graph: a graph with nested communities (edge
+probability decaying with the depth of the lowest common ancestor), sampled,
+with the walk $P$ the row-normalized adjacency. The community topology is
+planted; the metastable structure \emph{emerges} from the walk dynamics.
+
+We then sweep the Markov time $t$ and read the partition of $P^t$ with the
+agglomerative bottleneck. As $t$ grows, the recovered hierarchy
+\emph{coarsens} (Table~\ref{tab:flow}): the finest level dissolves first ---
+intra-community mixing has erased it --- then the next, while the coarsest
+survives. Each level owns a window of Markov time. The tower
+$Q(t{=}1) \supset Q(t{=}8) \supset Q(t{=}32)$ is a renormalization flow with
+\emph{time} as the flow parameter, the dynamical counterpart of the multi-scale
+community structure read off random-walk timescales in Markov-stability
+analysis \citep{delvenne2010stability}.
+
+\begin{table}[h]
+\centering
+\caption{Markov-time flow on a three-level modular random walk ($64$ nodes):
+adjusted mutual information of the recovered partition with each planted level,
+versus walk time $t$. Fine levels dissolve in order.}
+\label{tab:flow}
+\begin{tabular}{cccc}
+\toprule
+Markov time $t$ & leaves (8) & sub-blocks (4) & super-blocks (2) \\
+\midrule
+1--4   & 0.92--0.94 & 1.00 & 1.00 \\
+8--16  & 0.62       & 1.00 & 1.00 \\
+32--64 & 0.51       & 0.76 & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{When a Hierarchy Emerges}
+\label{sec:emergence}
+
+Sections~\ref{sec:planted}--\ref{sec:flow} planted the structure --- the rates,
+or the topology --- and recovered it. The harder question is when a hierarchy
+emerges with \emph{nothing} planted. We contrast two cases.
+
+\paragraph{No hierarchy: a noised automaton.}
+Take an ECA and make it stochastic: with probability $1-\epsilon$ apply the
+rule, with probability $\epsilon$ step to a perceptual neighbour (a one-bit
+flip). One might hope the deterministic basins become metastable sets. They do
+not, in any usable sense. The transfer operator of a deterministic automaton is
+a \emph{permutation}: its entire spectrum lies on the unit circle. Adding
+perceptual noise only perturbs that spectrum slightly --- most eigenvalue moduli
+stay near $1$, and \emph{no spectral gap} opens to separate slow modes from
+fast (Table~\ref{tab:noise}, $45$ to $179$ eigenvalues of modulus above $0.5$
+out of $256$). Only the escape time scales cleanly, as $1/\epsilon$. A
+near-permutation plus noise is not a metastable mixer; it has no hierarchy to
+find.
+
+\begin{table}[h]
+\centering
+\caption{Noised ECA ($n{=}8$): the escape time scales as $1/\epsilon$, but the
+agglomerative bottleneck recovers the basins only for the ordered rule. There
+is no clean metastable spectrum.}
+\label{tab:noise}
+\begin{tabular}{lcc}
+\toprule
+rule & escape time & bottleneck AMI vs.\ basins \\
+\midrule
+250 (ordered)  & ${\sim}1/\epsilon$ & up to $1.00$ \\
+110 (complex)  & ${\sim}1/\epsilon$ & ${\approx}0.5$ \\
+30  (chaotic)  & ${\sim}1/\epsilon$ & ${\approx}0.09$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{A hierarchy, ex nihilo: a spin glass.}
+Now take a system with a genuine \emph{landscape}. An Ising spin
+glass~\citep{mezard1987} on $n$ spins has energy
+$E(s) = -\sum_{i<j} J_{ij}\,s_i s_j$ with i.i.d.\ Gaussian
+couplings $J_{ij}$; single-spin-flip Glauber dynamics gives a Markov chain
+whose stationary measure is exactly Boltzmann. Nothing about a hierarchy is
+planted --- the couplings are random. Yet as the temperature falls, a
+multi-level metastable hierarchy \emph{emerges} (Table~\ref{tab:glass}): the
+number of well-separated relaxation-time gaps grows $1 \to 2 \to 3 \to 4$, and
+the slow timescales spread over eleven orders of magnitude. The slow modes
+appear in degenerate \emph{pairs}, the signature of the $\mathbb{Z}_2$ symmetry
+$E(-s) = E(s)$ --- metastable states come in $\pm$ pairs. The rough random
+landscape, on its own, grows a renormalization tower.
+
+\begin{table}[h]
+\centering
+\caption{Spin glass ($n{=}10$, $1024$ states, $8$ local energy minima): cooling
+the chain grows the metastable hierarchy --- the count of relaxation-time gaps
+rises and the slow timescales spread.}
+\label{tab:glass}
+\begin{tabular}{ccc}
+\toprule
+temperature $T$ & relaxation-time gaps & slow-timescale spread \\
+\midrule
+2.00 & 1 & ${\sim}10^{2}$ \\
+1.00 & 2 & ${\sim}10^{3}$ \\
+0.50 & 3 & ${\sim}10^{6}$ \\
+0.25 & 4 & ${\sim}10^{11}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{The condition.}
+Both systems are stochastic; only one grows a hierarchy. The difference is not
+stochasticity but \emph{landscape}. A noised automaton has no energy landscape
+--- a permutation plus noise --- and no metastable tower forms. A spin glass has
+a rugged landscape of nested minima, and a tower forms spontaneously. For a
+renormalization hierarchy to emerge, the dynamics must sit on a rough landscape
+with nested basins. A hierarchy needs a landscape.
+
+\section{Discussion and Limitations}
+\label{sec:discussion}
+
+\paragraph{What the testbed buys.}
+Every quantity here --- the transfer spectrum, the stationary measure, the
+mutual informations driving the agglomerative bottleneck --- is exact, because
+the state space is enumerated. The recovered hierarchies are scored against
+exact references (planted trees, or the exact basin partition). This is the
+methodological point: information-theoretic hierarchy recovery, usually
+hostage to estimator bias and to the absence of ground truth, becomes a
+controlled measurement.
+
+\paragraph{Limitations.}
+The systems are small ($|S| \le 4096$) by design --- exactness requires
+enumeration. The recovery experiments of
+Sections~\ref{sec:planted}--\ref{sec:flow} use planted or semi-planted
+substrates: this is a controlled-recovery design, and what is validated is that
+the method recovers a hierarchy \emph{known} to be present, not that a
+hierarchy arises unprompted. Only Section~\ref{sec:emergence} is unplanted, and
+there the spin-glass result at $n{=}10$ is modest --- a four-gap tower; the
+ultrametric organization of spin-glass states is a large-$n$ phenomenon and is
+only incipient here. The agglomerative bottleneck costs $O(|S|^2)$ in memory
+and time, which is the practical ceiling on $|S|$.
+
+\paragraph{Structural resonance with discrete-spacetime programs.}
+The obstruction that motivates this work --- discretizing a continuous system
+without losing causal structure --- is the same obstruction addressed by several
+programs in quantum gravity, and the mathematical responses share a common
+skeleton.  In loop quantum gravity, spatial areas are discrete not because a
+grid is imposed, but because the \emph{spectrum} of the area operator is
+discrete~\cite{Rovelli1995}; the spectrum encodes levels, not coordinates.
+Here, the levels of the renormalization hierarchy are exactly the gaps in the
+spectrum of the transfer operator (Section~\ref{sec:flow}) --- discreteness
+from eigenvalues, not from quantization of the state.
+In the causal-set program, spacetime is a partially ordered set, and
+``order plus counting equals geometry'' (Sorkin): the geometry is not
+a background but an \emph{emergent} property of the relational structure.
+The transition graph $f$ is a partial order; the stationary measure~$\mu$
+is counting; the hierarchy that emerges is geometry.
+In multiscale entanglement renormalization (MERA)~\cite{Vidal2007}, a
+tensor-network hierarchy is interpreted as a holographic bulk: the
+renormalization-group direction becomes an emergent spatial dimension.
+The Markov-time flow of Section~\ref{sec:flow} is the same structure in
+miniature: Markov time $t$ is the renormalization parameter, and the hierarchy
+is the emergent ``bulk''.
+These are analogies, not derivations.  But they share a single lesson:
+the unit of discretization should be the \emph{invariant} --- causal order,
+gauge holonomy, renormalization equivalence class --- rather than a coordinate.
+The agglomerative bottleneck operates on mutual information, an invariant of
+the dynamics; that is why it recovers the hierarchy where naive grid
+quantization collapses it.
+
+\paragraph{Outlook.}
+The natural next step is to push the unplanted case --- larger spin glasses, or
+other rough-landscape dynamics --- to ask not only whether a hierarchy emerges
+but whether it is ultrametric, and to follow the Markov-time flow of an
+\emph{emergent} (rather than planted) tower.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+On discrete dynamical systems with exact ground truth, a renormalization
+hierarchy --- the tower of dynamics-compatible coarse-grainings --- can be
+recovered without supervision: the agglomerative Information Bottleneck, run
+with exact mutual information, and the transfer-operator spectrum recover a
+planted hierarchy exactly and agree. The hierarchy is not a static object but a
+flow: Markov time is its renormalization parameter, and the levels dissolve in
+order as time grows. And a hierarchy is not free --- it does not emerge from a
+noised deterministic automaton, whose transfer operator is a near-permutation
+with no spectral gap, but it does emerge, with nothing planted, from a spin
+glass. The dividing line is the landscape: a renormalization hierarchy needs a
+rough landscape of nested basins. A hierarchy needs a landscape.
+
+\paragraph{Reproducibility.}
+All experiments are exact or seeded; the implementation --- the enumerable
+testbed, the agglomerative bottleneck, the Markov-chain substrates, and a test
+suite --- is released at
+\url{https://github.com/ateliermanuel/ddlab-sense-benchmark}.
+
+\bibliographystyle{plainnat}
+\bibliography{references2}
+
+\end{document}
