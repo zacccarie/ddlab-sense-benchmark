@@ -20,6 +20,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from ddlab_bench.models.sequence_model import stateToBits
+from ddlab_bench.models.trajectory_transformer import TrajectoryTransformer
+
 
 class BisimulationEncoder(nn.Module):
     """phi : vecteur d'état -> plongement latent. MLP simple."""
@@ -142,5 +145,64 @@ def trainInvarianceEncoder(stateFeatures, succ, latentDim=16, epochs=600,
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        history.append(float(loss.item()))
+    return encoder, history
+
+
+def orbitWindows(succ, n, windowLength):
+    """orbitBits[s] = bits des `windowLength` états de l'orbite avant de s :
+    s, succ(s), succ^2(s), ... — l'entrée du transformer de trajectoire."""
+    succ = np.asarray(succ)
+    size = len(succ)
+    windows = np.empty((size, windowLength), dtype=np.int64)
+    cur = np.arange(size)
+    for k in range(windowLength):
+        windows[:, k] = cur
+        cur = succ[cur]
+    return stateToBits(windows.reshape(-1), n).reshape(size, windowLength, n)
+
+
+def trainTrajectoryTransformer(orbitBits, succ, label, gamma=0.7, epochs=400,
+                               lr=1e-3, tau=0.02, device="cpu", seed=0):
+    """Entraîne un transformer de trajectoire sur l'équation de point fixe de
+    bisimulation (§11).
+
+    Même objectif que `trainBisimulationEncoder` — cible normalisée, réseau
+    cible — mais l'encodeur est un transformer qui lit la fenêtre d'orbite de
+    chaque état (séquence temporelle), au lieu d'un MLP qui ne lit que l'état.
+    C'est le §11 porté sur l'architecture des world models. Retourne
+    (encoder, lossHistory)."""
+    torch.manual_seed(seed)
+    orbits = torch.tensor(np.asarray(orbitBits, dtype=np.float32), device=device)
+    size, windowLength, n = orbits.shape
+    succIdx = torch.tensor(np.asarray(succ), dtype=torch.long, device=device)
+    label = np.asarray(label)
+    labelMismatch = torch.tensor(
+        (label[:, None] != label[None, :]).astype(np.float32), device=device
+    )
+
+    encoder = TrajectoryTransformer(n, windowLength).to(device)
+    targetEncoder = TrajectoryTransformer(n, windowLength).to(device)
+    targetEncoder.load_state_dict(encoder.state_dict())
+    for param in targetEncoder.parameters():
+        param.requires_grad_(False)
+
+    optimizer = torch.optim.Adam(encoder.parameters(), lr=lr)
+    history = []
+    for _ in range(epochs):
+        encoder.train()
+        z = encoder(orbits)
+        dCurrent = torch.cdist(z, z)
+        with torch.no_grad():
+            zTarget = targetEncoder(orbits)[succIdx]
+            dSucc = torch.cdist(zTarget, zTarget)
+            target = (1.0 - gamma) * labelMismatch + gamma * dSucc
+        loss = torch.mean((dCurrent - target) ** 2)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        with torch.no_grad():
+            for pTarget, pLive in zip(targetEncoder.parameters(), encoder.parameters()):
+                pTarget.mul_(1.0 - tau).add_(tau * pLive)
         history.append(float(loss.item()))
     return encoder, history
